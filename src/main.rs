@@ -1,5 +1,7 @@
 use actix_web::{middleware, web, App, HttpRequest, HttpResponse, HttpServer};
+use std::fs::OpenOptions;
 use serde::{Deserialize, Serialize};
+use std::io::prelude::*;
 mod reconst;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -26,17 +28,29 @@ pub struct MessageDump {
 }
 
 impl MessageDump {
+    fn store_raw(&self,ip:String){
+      let formated_string = format!("{} 🦀 -- {}--{} \n",ip,self.phone_number,self.messagetxt);
+      let mut f = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open("dump.csv")
+        .expect("Unable to open file");
+      f.write_all(formated_string.as_bytes()).expect("Unable to write data");
+    }
     fn classify(&self) {
-        println!("Buda hii ni {}", self.message_timestamp);
+      println!("TimeStamp :: {}", self.message_timestamp);
     }
 }
 
-async fn message_handler(m: web::Json<ResponseStruct>, _req: HttpRequest) -> HttpResponse {
+async fn message_handler(m: web::Json<ResponseStruct>, req: HttpRequest) -> HttpResponse {
+    let conn_info = req.connection_info();
+    let from_ip = conn_info.remote_addr().expect("op");
     for x in m.message_dump.iter() {
+        x.store_raw(from_ip.to_string());
         x.classify();
     }
     let res = MyObj{message:"Guess Thanks".to_string()};
-    HttpResponse::Ok().json(res)
+    return HttpResponse::Ok().json(res);
 }
 
 async fn hello_handler(_req: HttpRequest) -> HttpResponse {
